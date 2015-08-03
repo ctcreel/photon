@@ -13,6 +13,7 @@ generatorDeviceID gID;
 eventStream *e;
 SoftwareSerial ss(11,10);
 
+
 void setup() {
   Serial.begin(19200);
   Serial3.begin(19200);
@@ -28,19 +29,48 @@ void setup() {
   new eventIncoming(e, setWaterLevel, SET_WATER_LEVEL);
   new eventIncoming(e, setHeight, SET_HEIGHT);
   new eventIncoming(e, setGrowMode, SET_GROW_MODE);
-  e->check(10);
+  new eventIncoming(e, startFlowering, START_FLOWERING);
+  e->check(5);
+  Alarm.timerRepeat(5, checkIoT);
+  gatherVitals(2);
 }
 
 void loop() {
-  gatherVitals();
+  gatherVitals(225);
 }
 
-void gatherVitals(void) {
+void gatherVitals(unsigned int delayTime) {
   unsigned int list[8] = {GET_HUMIDITY, GET_TEMP, GET_TIME, GET_LIGHT_ON, GET_FAN_ON, GET_DISTANCE,GET_WATER_LEVEL, GET_GROW_MODE};
   DEBUG("----------- Gather Vitals ----------- ");
   for(unsigned int i = 0; i < 8; i++) {
     e->createEvent("", list[i]);
-    e->check(225);
+    e->check(delayTime);
+  }
+}
+
+void checkIoT(void) {
+    unsigned long id = 0, value = 0;
+    if(Serial3.available()) {
+        Serial.println("Incoming!");
+        char payload[20];
+        unsigned int index = 0;
+        char c=0;
+        delay(1000);
+        do {
+            c = Serial3.read();
+            payload[index++] = c;
+        } while(Serial3.available() && c != '\n');
+        payload[index-2]=0;
+        sscanf(payload,"%u:%u",&id,&value);
+        Serial.println(payload);
+        handle(id,value);
+    }
+}
+
+void handle(const unsigned long id, const unsigned long value) {
+  if(id == 1) {
+    Serial.println("Particle starting up");
+    gatherVitals(2);
   }
 }
 
@@ -110,6 +140,13 @@ void setHeight(const unsigned long v) {
 void setGrowMode(const unsigned long v) {
   DEBUG("Grow mode is " + String(v));
   Serial3.print(SET_GROW_MODE);
+  Serial3.print(":");
+  Serial3.println(v);
+}
+
+void startFlowering(const unsigned long v) {
+  DEBUG("Start flowering!");
+  Serial3.print(START_FLOWERING);
   Serial3.print(":");
   Serial3.println(v);
 }
