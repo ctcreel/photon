@@ -20,8 +20,10 @@ void setup() {
   ss.begin(BAUD_RATE);
   DEBUG("Starting up...");
   e = new eventStream(&ss,&gID);
+  new eventIncoming(e, setMoisture, SET_MOISTURE);
   new eventIncoming(e, setHumidity, SET_HUMIDITY);
-  new eventIncoming(e, setTemp, SET_TEMP);
+  new eventIncoming(e, setSoilTemp, SET_SOIL_TEMP);
+  new eventIncoming(e, setAirTemp, SET_AIR_TEMP);
   new eventIncoming(e, setLightOn, SET_LIGHT_ON);
   new eventIncoming(e, setFanOn, SET_FAN_ON);
   new eventIncoming(e, setDistance, SET_DISTANCE);
@@ -36,13 +38,25 @@ void setup() {
 }
 
 void loop() {
-  gatherVitals(225);
+  gatherVitals(60);
 }
 
 void gatherVitals(unsigned int delayTime) {
-  unsigned int list[8] = {GET_HUMIDITY, GET_TEMP, GET_TIME, GET_LIGHT_ON, GET_FAN_ON, GET_DISTANCE,GET_WATER_LEVEL, GET_GROW_MODE};
+  unsigned int list[10] = {
+    GET_MOISTURE, 
+    GET_HUMIDITY, 
+    GET_AIR_TEMP, 
+    GET_SOIL_TEMP, 
+    GET_TIME, 
+    GET_LIGHT_ON, 
+    GET_FAN_ON, 
+    GET_DISTANCE,
+    GET_WATER_LEVEL, 
+    GET_GROW_MODE
+  };
+  
   DEBUG("----------- Gather Vitals ----------- ");
-  for(unsigned int i = 0; i < 8; i++) {
+  for(unsigned int i = 0; i < 10; i++) {
     e->createEvent("", list[i]);
     e->check(delayTime);
   }
@@ -81,6 +95,13 @@ void setHumidity(const unsigned long v) {
   Serial3.println(v);
 }
 
+void setMoisture(const unsigned long v) {
+  DEBUG("Moisture is " + String(v));
+  Serial3.print(SET_MOISTURE);
+  Serial3.print(":");
+  Serial3.println(v);
+}
+
 void setCurrentTime(const unsigned long v) {
   DEBUG("Time is " + String(v));
   Serial3.print(SET_TIME);
@@ -88,12 +109,20 @@ void setCurrentTime(const unsigned long v) {
   Serial3.println(v);
 }
 
-void setTemp(const unsigned long v) {
-  DEBUG("Temp is " + String(v));
-  Serial3.print(SET_TEMP);
+void setSoilTemp(const unsigned long v) {
+  DEBUG("Soil Temp is " + String(v));
+  Serial3.print(SET_SOIL_TEMP);
   Serial3.print(":");
   Serial3.println(v);
 }
+
+void setAirTemp(const unsigned long v) {
+  DEBUG("Air Temp is " + String(v));
+  Serial3.print(SET_AIR_TEMP);
+  Serial3.print(":");
+  Serial3.println(v);
+}
+
 
 void setLightOn(const unsigned long v) {
   DEBUG("Light on is " + String(v));
