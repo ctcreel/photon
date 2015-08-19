@@ -13,7 +13,6 @@ generatorDeviceID gID;
 eventStream *e;
 SoftwareSerial ss(11,10);
 
-
 void setup() {
   Serial.begin(19200);
   Serial3.begin(19200);
@@ -24,6 +23,7 @@ void setup() {
   new eventIncoming(e, setHumidity, SET_HUMIDITY);
   new eventIncoming(e, setSoilTemp, SET_SOIL_TEMP);
   new eventIncoming(e, setAirTemp, SET_AIR_TEMP);
+  new eventIncoming(e, setLightOnTime, SET_TIME_ON);
   new eventIncoming(e, setLightOn, SET_LIGHT_ON);
   new eventIncoming(e, setFanOn, SET_FAN_ON);
   new eventIncoming(e, setDistance, SET_DISTANCE);
@@ -33,30 +33,31 @@ void setup() {
   new eventIncoming(e, setGrowMode, SET_GROW_MODE);
   new eventIncoming(e, startFlowering, START_FLOWERING);
   e->check(5);
-  Alarm.timerRepeat(5, checkIoT);
   gatherVitals(2);
 }
 
 void loop() {
   gatherVitals(60);
+  checkIoT();
 }
 
 void gatherVitals(unsigned int delayTime) {
-  unsigned int list[10] = {
+  unsigned int list[] = {
     GET_MOISTURE, 
     GET_HUMIDITY, 
     GET_AIR_TEMP, 
     GET_SOIL_TEMP, 
-    GET_TIME, 
-    GET_LIGHT_ON, 
-    GET_FAN_ON, 
+    GET_TIME,
+    GET_LIGHT_ON,
+    GET_FAN_ON,
     GET_DISTANCE,
     GET_WATER_LEVEL, 
-    GET_GROW_MODE
+    GET_GROW_MODE,
+    GET_TIME_ON
   };
   
   DEBUG("----------- Gather Vitals ----------- ");
-  for(unsigned int i = 0; i < 10; i++) {
+  for(unsigned int i = 0; i < (sizeof(list) / sizeof(unsigned int)); i++) {
     e->createEvent("", list[i]);
     e->check(delayTime);
   }
@@ -64,20 +65,18 @@ void gatherVitals(unsigned int delayTime) {
 
 void checkIoT(void) {
     unsigned long id = 0, value = 0;
-    if(Serial3.available()) {
+    while(Serial3.available()) {
         Serial.println("Incoming!");
-        char payload[20];
+        char payload[200];
         unsigned int index = 0;
-        char c=0;
-        delay(1000);
         do {
-            c = Serial3.read();
-            payload[index++] = c;
-        } while(Serial3.available() && c != '\n');
-        payload[index-2]=0;
+            payload[index++] = Serial3.read();
+        } while(Serial3.available() && payload[index-1] != '\n');
+        payload[index-1]=0;
         sscanf(payload,"%u:%u",&id,&value);
         Serial.println(payload);
         handle(id,value);
+        e->check(0);
     }
 }
 
@@ -165,6 +164,14 @@ void setHeight(const unsigned long v) {
   Serial3.print(":");
   Serial3.println(v);
 }
+
+void setLightOnTime(const unsigned long v) {
+  DEBUG("Light on time is " + String(v));
+  Serial3.print(SET_TIME_ON);
+  Serial3.print(":");
+  Serial3.println(v);
+}
+
 
 void setGrowMode(const unsigned long v) {
   DEBUG("Grow mode is " + String(v));
