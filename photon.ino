@@ -15,16 +15,17 @@ SoftwareSerial ss(11,10);
 
 void setup() {
   Serial.begin(19200);
-  Serial3.begin(19200);
-  ss.begin(BAUD_RATE);
+  Serial3.begin(9600);
+  Serial2.begin(BAUD_RATE);
   DEBUG("Starting up...");
-  e = new eventStream(&ss,&gID);
+  e = new eventStream(&Serial2,&gID);
   new eventIncoming(e, setMoisture, SET_MOISTURE);
   new eventIncoming(e, setHumidity, SET_HUMIDITY);
   new eventIncoming(e, setSoilTemp, SET_SOIL_TEMP);
   new eventIncoming(e, setAirTemp, SET_AIR_TEMP);
   new eventIncoming(e, setLightOnTime, SET_TIME_ON);
   new eventIncoming(e, setLightOn, SET_LIGHT_ON);
+  new eventIncoming(e, setFoggerOn, SET_FOGGER_ON);
   new eventIncoming(e, setFanOn, SET_FAN_ON);
   new eventIncoming(e, setDistance, SET_DISTANCE);
   new eventIncoming(e, setDistanceAlarm, SET_DISTANCE_ALARM);
@@ -32,16 +33,15 @@ void setup() {
   new eventIncoming(e, setHeight, SET_HEIGHT);
   new eventIncoming(e, setGrowMode, SET_GROW_MODE);
   new eventIncoming(e, startFlowering, START_FLOWERING);
-  e->check(5);
-  gatherVitals(2);
+  e->check(20);
 }
 
 void loop() {
-  gatherVitals(60);
+  gatherVitals();
   checkIoT();
 }
 
-void gatherVitals(unsigned int delayTime) {
+void gatherVitals(void) {
   unsigned int list[] = {
     GET_MOISTURE, 
     GET_HUMIDITY, 
@@ -50,6 +50,7 @@ void gatherVitals(unsigned int delayTime) {
     GET_TIME,
     GET_LIGHT_ON,
     GET_FAN_ON,
+    GET_FOGGER_ON,
     GET_DISTANCE,
     GET_WATER_LEVEL, 
     GET_GROW_MODE,
@@ -57,9 +58,10 @@ void gatherVitals(unsigned int delayTime) {
   };
   
   DEBUG("----------- Gather Vitals ----------- ");
-  for(unsigned int i = 0; i < (sizeof(list) / sizeof(unsigned int)); i++) {
+  const unsigned int arraySize = (sizeof(list) / sizeof(unsigned int));
+  for(unsigned int i = 0; i < arraySize; i++) {
     e->createEvent("", list[i]);
-    e->check(delayTime);
+    e->check(300 / arraySize ); // refresh every 5 minutes
   }
 }
 
@@ -83,7 +85,7 @@ void checkIoT(void) {
 void handle(const unsigned long id, const unsigned long value) {
   if(id == 1) {
     Serial.println("Particle starting up");
-    gatherVitals(2);
+    gatherVitals();
   }
 }
 
@@ -172,6 +174,12 @@ void setLightOnTime(const unsigned long v) {
   Serial3.println(v);
 }
 
+void setFoggerOn(const unsigned long v) {
+  DEBUG("Fogger on is " + String(v));
+  Serial3.print(SET_FOGGER_ON);
+  Serial3.print(":");
+  Serial3.println(v);
+}
 
 void setGrowMode(const unsigned long v) {
   DEBUG("Grow mode is " + String(v));
