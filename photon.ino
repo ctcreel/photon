@@ -11,12 +11,11 @@
 
 generatorDeviceID gID;
 eventStream *e;
-SoftwareSerial ss(11,10);
 
 void setup() {
   Serial.begin(19200);
-  Serial3.begin(9600);
-  Serial2.begin(BAUD_RATE);
+  Serial2.begin(BAUD_RATE); // XBee
+  Serial3.begin(9600); // IoT device
   DEBUG("Starting up...");
   e = new eventStream(&Serial2,&gID);
   new eventIncoming(e, setMoisture, SET_MOISTURE);
@@ -154,7 +153,7 @@ void setDistanceAlarm(const unsigned long v) {
 }
 
 void setWaterLevel(const unsigned long v) {
-  DEBUG("Water Level is" + String(v));
+  DEBUG("Water Level is " + String(v));
   Serial3.print(SET_WATER_LEVEL);
   Serial3.print(":");
   Serial3.println(v);
