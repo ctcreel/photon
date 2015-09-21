@@ -1,26 +1,51 @@
 #include "DEBUG.h"
 #include "../../Projects/HydroManager/Commands.h"
-#include <SoftwareSerial.h>
-#include <TextFinder.h>
-#include <Time.h>
-#include <TimeAlarms.h>
+#include "../../Projects/HydroManager/Config.h"
 #include "eventStream.h"
 #include "eventHandler.h"
 #include "eventCallBack.h"
 #include "generatorDeviceID.h"
+#include "Logger.h"
+#include <SD.h>
+#include <SPI.h>
+#include <RTClib.h>
+#include <TextFinder.h>
+#include <Time.h>
+#include <TimeAlarms.h>
+#include <Wire.h>
 
+#define SD_ONE 10
+#define SD_TWO 11
+#define SD_THREE 12
+#define SD_FOUR 13
+
+logger *loggerDevice;
 generatorDeviceID gID;
 eventStream *e;
+
+RTC_DS1307 RTC;
+time_t syncProvider()     //this does the same thing as RTC_DS1307::get()
+{
+  return RTC.now().unixtime();
+}
 
 void setup() {
   Serial.begin(19200);
   Serial2.begin(BAUD_RATE); // XBee
   Serial3.begin(9600); // IoT device
   DEBUG("Starting up...");
+
+  /* Set up clock */ 
+  RTC.begin();
+  setSyncProvider(syncProvider);     //reference our syncProvider function instead of RTC_DS1307::get()
+  DEBUG("Current time is - " + String(hour()) + ":" + String(minute()) + " on " + String(month()) + "-" + String(day()) + "-" + String(year()));
+
+  pinMode(52,OUTPUT);
+  digitalWrite(52,HIGH);
+  loggerDevice = new logger(SD_ONE, SD_TWO, SD_THREE, SD_FOUR);
   e = new eventStream(&Serial2,&gID);
   new eventIncoming(e, setMoisture, SET_MOISTURE);
   new eventIncoming(e, setHumidity, SET_HUMIDITY);
-  new eventIncoming(e, setSoilTemp, SET_SOIL_TEMP);
   new eventIncoming(e, setAirTemp, SET_AIR_TEMP);
   new eventIncoming(e, setLightOnTime, SET_TIME_ON);
   new eventIncoming(e, setLightOn, SET_LIGHT_ON);
@@ -28,7 +53,6 @@ void setup() {
   new eventIncoming(e, setFanOn, SET_FAN_ON);
   new eventIncoming(e, setDistance, SET_DISTANCE);
   new eventIncoming(e, setDistanceAlarm, SET_DISTANCE_ALARM);
-  new eventIncoming(e, setWaterLevel, SET_WATER_LEVEL);
   new eventIncoming(e, setHeight, SET_HEIGHT);
   new eventIncoming(e, setGrowMode, SET_GROW_MODE);
   new eventIncoming(e, startFlowering, START_FLOWERING);
@@ -36,32 +60,8 @@ void setup() {
 }
 
 void loop() {
-  gatherVitals();
   checkIoT();
-}
-
-void gatherVitals(void) {
-  unsigned int list[] = {
-    GET_MOISTURE, 
-    GET_HUMIDITY, 
-    GET_AIR_TEMP, 
-    GET_SOIL_TEMP, 
-    GET_TIME,
-    GET_LIGHT_ON,
-    GET_FAN_ON,
-    GET_FOGGER_ON,
-    GET_DISTANCE,
-    GET_WATER_LEVEL, 
-    GET_GROW_MODE,
-    GET_TIME_ON
-  };
-  
-  DEBUG("----------- Gather Vitals ----------- ");
-  const unsigned int arraySize = (sizeof(list) / sizeof(unsigned int));
-  for(unsigned int i = 0; i < arraySize; i++) {
-    e->createEvent("", list[i]);
-    e->check(300 / arraySize ); // refresh every 5 minutes
-  }
+  e->check(0);
 }
 
 void checkIoT(void) {
@@ -84,114 +84,88 @@ void checkIoT(void) {
 void handle(const unsigned long id, const unsigned long value) {
   if(id == 1) {
     Serial.println("Particle starting up");
-    gatherVitals();
   }
+}
+
+void transmit(const unsigned long v, const unsigned int id ) {
+  Serial3.print(id);
+  Serial3.print(":");
+  Serial3.println(v);
 }
 
 void setHumidity(const unsigned long v) {
   DEBUG("Humidity is " + String(v));
-  Serial3.print(SET_HUMIDITY);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("HUMIDITY.TXT",v);
+  transmit(v,SET_HUMIDITY);
 }
 
 void setMoisture(const unsigned long v) {
   DEBUG("Moisture is " + String(v));
-  Serial3.print(SET_MOISTURE);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("MOISTURE.TXT",v);
+  transmit(v,SET_MOISTURE);
 }
 
 void setCurrentTime(const unsigned long v) {
   DEBUG("Time is " + String(v));
-  Serial3.print(SET_TIME);
-  Serial3.print(":");
-  Serial3.println(v);
-}
-
-void setSoilTemp(const unsigned long v) {
-  DEBUG("Soil Temp is " + String(v));
-  Serial3.print(SET_SOIL_TEMP);
-  Serial3.print(":");
-  Serial3.println(v);
+  transmit(v,SET_TIME);
 }
 
 void setAirTemp(const unsigned long v) {
   DEBUG("Air Temp is " + String(v));
-  Serial3.print(SET_AIR_TEMP);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("AIRTEMP.TXT",v);
+  transmit(v,SET_AIR_TEMP);
 }
-
 
 void setLightOn(const unsigned long v) {
   DEBUG("Light on is " + String(v));
-  Serial3.print(SET_LIGHT_ON);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("LIGHT.TXT",v);
+  transmit(v,SET_LIGHT_ON);
 }
 
 void setFanOn(const unsigned long v) {
   DEBUG("Fan on is " + String(v));
-  Serial3.print(SET_FAN_ON);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("FAN.TXT",v);
+  transmit(v,SET_FAN_ON);
 }
 
 void setDistance(const unsigned long v) {
   DEBUG("Distance is " + String(v));
-  Serial3.print(SET_DISTANCE);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("DISTANCE.TXT",v);
+  transmit(v,SET_DISTANCE);
 }
 
 void setDistanceAlarm(const unsigned long v) {
   DEBUG("Distance alarm!");
-  Serial3.print(SET_DISTANCE_ALARM);
-  Serial3.print(":");
-  Serial3.println(v);
-}
-
-void setWaterLevel(const unsigned long v) {
-  DEBUG("Water Level is " + String(v));
-  Serial3.print(SET_WATER_LEVEL);
-  Serial3.print(":");
-  Serial3.println(v);
+  transmit(v,SET_DISTANCE_ALARM);
 }
 
 void setHeight(const unsigned long v) {
   DEBUG("Height is " + String(v));
-  Serial3.print(SET_HEIGHT);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("HEIGHT.TXT",v);
+  transmit(v,SET_HEIGHT);
 }
 
 void setLightOnTime(const unsigned long v) {
   DEBUG("Light on time is " + String(v));
-  Serial3.print(SET_TIME_ON);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("LIGHT_ON_TIME.TXT",v);
+  transmit(v,SET_TIME_ON);
 }
 
 void setFoggerOn(const unsigned long v) {
   DEBUG("Fogger on is " + String(v));
-  Serial3.print(SET_FOGGER_ON);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("FOGGER.TXT",v);
+  transmit(v,SET_FOGGER_ON);
 }
 
 void setGrowMode(const unsigned long v) {
   DEBUG("Grow mode is " + String(v));
-  Serial3.print(SET_GROW_MODE);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("GROW_MODE.TXT",v);
+  transmit(v,SET_GROW_MODE);
 }
 
 void startFlowering(const unsigned long v) {
   DEBUG("Start flowering!");
-  Serial3.print(START_FLOWERING);
-  Serial3.print(":");
-  Serial3.println(v);
+  loggerDevice->logValue("FLOWERING.TXT",v);
+  transmit(v,START_FLOWERING);
 }
-
 
