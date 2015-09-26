@@ -33,6 +33,7 @@ void setup() {
   Serial.begin(19200);
   Serial2.begin(BAUD_RATE); // XBee
   Serial3.begin(9600); // IoT device
+  Wire.begin();
   DEBUG("Starting up...");
 
   /* Set up clock */ 
