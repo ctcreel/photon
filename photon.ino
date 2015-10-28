@@ -54,7 +54,7 @@ void setup() {
   new eventIncoming(e, setFanOn, SET_FAN_ON);
   new eventIncoming(e, setDistance, SET_DISTANCE);
   new eventIncoming(e, setDistanceAlarm, SET_DISTANCE_ALARM);
-  new eventIncoming(e, setHeight, SET_HEIGHT);
+  new eventIncoming(e, setHeight, SET_AVERAGE_HEIGHT);
   new eventIncoming(e, setGrowMode, SET_GROW_MODE);
   new eventIncoming(e, startFlowering, START_FLOWERING);
   e->check(20);
@@ -143,7 +143,7 @@ void setDistanceAlarm(const unsigned long v) {
 void setHeight(const unsigned long v) {
   DEBUG("Height is " + String(v));
   loggerDevice->logValue("HEIGHT.TXT",v);
-  transmit(v,SET_HEIGHT);
+  transmit(v,SET_AVERAGE_HEIGHT);
 }
 
 void setLightOnTime(const unsigned long v) {
